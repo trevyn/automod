@@ -44,3 +44,18 @@ jobs:
       - uses: actions/checkout@v3
       - uses: dtolnay/install@cargo-outdated
       - run: cargo outdated --workspace --exit-code 1
+
+  publish:
+    needs: [clippy, outdated, test]
+    runs-on: ubuntu-latest
+    if: ${{ startsWith(github.event.head_commit.message, 'turbomod@') && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: hecrj/setup-rust-action@v1
+        with:
+          rust-version: stable
+
+      - name: cargo publish turbomod
+        run: cargo publish --no-verify --allow-dirty --token ${{ secrets.CARGO_TOKEN }}
