@@ -48,7 +48,7 @@ jobs:
   publish:
     needs: [clippy, outdated, test]
     runs-on: ubuntu-latest
-    if: ${{ startsWith(github.event.head_commit.message, 'turbomod@') && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    if: ${{ startsWith(github.event.head_commit.message, 'turbomod@') && github.event_name == 'push' && github.ref == 'refs/heads/master' }}
 
     steps:
       - uses: actions/checkout@v3
