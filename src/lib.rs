@@ -14,10 +14,11 @@ use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 use syn::parse::{Parse, ParseStream};
-use syn::{parse_macro_input, LitStr, Visibility};
+use syn::{parse_macro_input, LitStr, Token, Visibility};
 
 struct Arg {
     vis: Visibility,
+    useness: Option<Token![use]>,
     path: LitStr,
 }
 
@@ -25,6 +26,7 @@ impl Parse for Arg {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         Ok(Arg {
             vis: input.parse()?,
+            useness: input.parse()?,
             path: input.parse()?,
         })
     }
@@ -34,6 +36,7 @@ impl Parse for Arg {
 pub fn dir(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as Arg);
     let vis = &input.vis;
+    let useness = input.useness.is_some();
     let rel_path = input.path.value();
 
     let dir = match env::var_os("CARGO_MANIFEST_DIR") {
@@ -42,25 +45,43 @@ pub fn dir(input: TokenStream) -> TokenStream {
     };
 
     let expanded = match source_file_names(dir) {
-        Ok(names) => names.into_iter().map(|name| mod_item(vis, name)).collect(),
+        Ok(names) => names
+            .into_iter()
+            .map(|name| mod_item(vis, useness, name))
+            .collect(),
         Err(err) => syn::Error::new(Span::call_site(), err).to_compile_error(),
     };
 
     TokenStream::from(expanded)
 }
 
-fn mod_item(vis: &Visibility, name: String) -> TokenStream2 {
+fn mod_item(vis: &Visibility, useness: bool, name: String) -> TokenStream2 {
     if name.contains('-') {
         let path = format!("{}.rs", name);
         let ident = Ident::new(&name.replace('-', "_"), Span::call_site());
-        quote! {
-            #[path = #path]
-            #vis mod #ident;
+        if useness {
+            quote! {
+                #[path = #path]
+                #vis mod #ident;
+                #vis use self::#ident::*;
+            }
+        } else {
+            quote! {
+                #[path = #path]
+                #vis mod #ident;
+            }
         }
     } else {
         let ident = Ident::new(&name, Span::call_site());
-        quote! {
-            #vis mod #ident;
+        if useness {
+            quote! {
+                #vis mod #ident;
+                #vis use self::#ident::*;
+            }
+        } else {
+            quote! {
+                #vis mod #ident;
+            }
         }
     }
 }
